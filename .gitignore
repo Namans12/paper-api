@@ -8,3 +8,7 @@ captures/**/*.[pP][nN][gG]
 captures/**/*.[hH][eE][iI][cC]
 captures/**/*.[hH][eE][iI][fF]
 captures/**/answers.json
+
+# Private planning notes (kept locally, not published)
+KIROWEEN_PLAN.md
+docs/superpowers/
