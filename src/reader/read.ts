@@ -4,10 +4,14 @@ import { applyH, homography, type Pt } from '../geometry/homography';
 import { boxRect, fiducialCenters, SAMPLE_INSET, type Rect } from '../sheet/layout';
 import { decodePayload, encodePayload, qrMatrix, qrSymbolCorners } from '../sheet/qr';
 import type { RGBA } from '../sheet/raster';
-import { findSolidSquares, otsu, type Blob } from './fiducials';
+import { findSolidSquares, otsu } from './fiducials';
 import { downscale, sampleGray, toGray, type Gray } from './image';
 
 export const MARK_THRESHOLD = 0.10, EMPTY_THRESHOLD = 0.03, INK_RATIO = 0.6;
+/** Minimum fraction of box-border probe points that must be found for the registration to be trusted. */
+export const REGISTRATION_MIN = 0.85;
+/** A fiducial candidate must lie within this many mm of its QR-predicted position. */
+export const FIDUCIAL_GATE_MM = 80;
 
 export type ReadFailure = 'no-qr' | 'bad-payload' | 'no-alignment' | 'alignment-mismatch';
 export interface BoxRead { status: Status; score: number }
@@ -22,37 +26,13 @@ const GRID = 20;
 const RING_NEAR = 1.2, RING_FAR = 3.5, RING_PER_SIDE = 20;
 const RING_DISTANCES = [RING_NEAR, 1.775, 2.35, 2.925, RING_FAR];
 
-function pickFiducials(gray: Gray, predicted: Pt[]): Blob[] | null {
-  const t = otsu(gray);
-  const diag = Math.hypot(gray.width, gray.height);
-  for (const threshold of [t, 0.75 * t]) {
-    const cands = findSolidSquares(gray, threshold);
-    if (cands.length < 4) continue;
-    const chosen: Blob[] = [];
-    for (const p of predicted) {
-      let best: Blob | null = null, bestD = 0.25 * diag;
-      for (const c of cands) {
-        const d = Math.hypot(c.cx - p[0], c.cy - p[1]);
-        if (d <= bestD && !chosen.includes(c)) { best = c; bestD = d; }
-      }
-      if (!best) break;
-      chosen.push(best);
-    }
-    if (chosen.length < 4) continue;
-    const areas = chosen.map((c) => c.area);
-    if (Math.max(...areas) > 4 * Math.min(...areas)) continue;
-    return chosen;
-  }
-  return null;
-}
-
 function scaleAt(H: number[], p: Pt): number {
   const a = applyH(H, p), bx = applyH(H, [p[0] + 1, p[1]]), by = applyH(H, [p[0], p[1] + 1]);
   const ux = bx[0] - a[0], uy = bx[1] - a[1], vx = by[0] - a[0], vy = by[1] - a[1];
   return Math.sqrt(Math.abs(ux * vy - uy * vx));
 }
 
-function boxScore(gray: Gray, H: number[], b: Rect): number {
+function ringWhite(gray: Gray, H: number[], b: Rect): number {
   const ring: number[] = [];
   for (let i = 0; i < RING_PER_SIDE; i++) {
     const f = (i + 0.5) / RING_PER_SIDE;
@@ -65,7 +45,11 @@ function boxScore(gray: Gray, H: number[], b: Rect): number {
     for (const p of pts) { const q = applyH(H, p); ring.push(sampleGray(gray, q[0], q[1])); }
   }
   ring.sort((a, c) => a - c);
-  const white = ring[Math.floor(0.8 * (ring.length - 1))];
+  return ring[Math.floor(0.8 * (ring.length - 1))];
+}
+
+function boxScore(gray: Gray, H: number[], b: Rect): number {
+  const white = ringWhite(gray, H, b);
   const cutoff = INK_RATIO * white;
   const x0 = b.x + SAMPLE_INSET, y0 = b.y + SAMPLE_INSET, span = b.w - 2 * SAMPLE_INSET;
   let dark = 0;
@@ -75,6 +59,90 @@ function boxScore(gray: Gray, H: number[], b: Rect): number {
       if (sampleGray(gray, q[0], q[1]) < cutoff) dark++;
     }
   return dark / (GRID * GRID);
+}
+
+const BORDER_CENTRE = 0.3, BORDER_SEARCH = 1.0;
+
+/** Fraction of checkbox-border probe points (18 boxes x 4 sides x 3) whose darkest pixel within +-1 mm is ink. */
+export function registrationScore(gray: Gray, H: number[]): number {
+  let found = 0, total = 0;
+  for (let r = 0; r < 6; r++)
+    for (let c = 0; c < 3; c++) {
+      const b = boxRect(r, c);
+      const cutoff = INK_RATIO * ringWhite(gray, H, b);
+      for (const f of [0.25, 0.5, 0.75]) {
+        const a = f * b.w;
+        // [point on the border line, unit direction perpendicular to the side]
+        const probes: [Pt, Pt][] = [
+          [[b.x + a, b.y + BORDER_CENTRE], [0, 1]], [[b.x + a, b.y + b.h - BORDER_CENTRE], [0, 1]],
+          [[b.x + BORDER_CENTRE, b.y + a], [1, 0]], [[b.x + b.w - BORDER_CENTRE, b.y + a], [1, 0]],
+        ];
+        for (const [p, n] of probes) {
+          total++;
+          let darkest = 255;
+          for (let k = -10; k <= 10; k++) {
+            const t = (k / 10) * BORDER_SEARCH;
+            const q = applyH(H, [p[0] + n[0] * t, p[1] + n[1] * t]);
+            darkest = Math.min(darkest, sampleGray(gray, q[0], q[1]));
+          }
+          if (darkest < cutoff) found++;
+        }
+      }
+    }
+  return found / total;
+}
+
+const PER_CORNER = 3;
+type Alignment = { H: number[] } | { reason: 'no-alignment' | 'alignment-mismatch' };
+
+/**
+ * Find the page homography. Each fiducial may be any solid square within FIDUCIAL_GATE_MM of the QR-predicted
+ * position (the QR prediction is coarse, see report); every plausible combination is then verified against the
+ * QR corners and the checkbox borders of the whole page, and the best-registered one wins.
+ */
+function align(gray: Gray, Hq: number[], symPage: Pt[], symImg: Pt[]): Alignment {
+  const centres = fiducialCenters();
+  const predicted = centres.map((c) => applyH(Hq, c));
+  const gates = centres.map((c) => FIDUCIAL_GATE_MM * scaleAt(Hq, c));
+  const t = otsu(gray);
+  let reason: 'no-alignment' | 'alignment-mismatch' = 'no-alignment';
+  for (const threshold of [t, 0.75 * t]) {
+    const cands = findSolidSquares(gray, threshold);
+    const lists = predicted.map((p, k) =>
+      cands
+        .map((c) => ({ c, d: Math.hypot(c.cx - p[0], c.cy - p[1]) }))
+        .filter((e) => e.d <= gates[k])
+        .sort((x, y) => x.d - y.d)
+        .slice(0, PER_CORNER)
+        .map((e) => e.c));
+    if (lists.some((l) => l.length === 0)) continue;
+    let best: { H: number[]; score: number } | null = null;
+    for (const a of lists[0]) for (const b of lists[1]) for (const c of lists[2]) for (const d of lists[3]) {
+      const chosen = [a, b, c, d];
+      if (new Set(chosen).size < 4) continue;
+      const areas = chosen.map((x) => x.area);
+      if (Math.max(...areas) > 4 * Math.min(...areas)) continue;
+      let H: number[];
+      try { H = homography(centres, chosen.map((x) => [x.cx, x.cy] as Pt)); } catch { continue; }
+      reason = 'alignment-mismatch';
+      if (!qrAgrees(H, symPage, symImg)) continue;
+      const score = registrationScore(gray, H);
+      if (score >= REGISTRATION_MIN && (!best || score > best.score)) best = { H, score };
+    }
+    if (best) return { H: best.H };
+  }
+  return { reason };
+}
+
+function qrAgrees(H: number[], symPage: Pt[], symImg: Pt[]): boolean {
+  const mid: Pt = [(symPage[0][0] + symPage[2][0]) / 2, (symPage[0][1] + symPage[2][1]) / 2];
+  const pxPerMm = scaleAt(H, mid);
+  let errPx = 0;
+  symPage.forEach((p, i) => {
+    const q = applyH(H, p);
+    errPx += Math.hypot(q[0] - symImg[i][0], q[1] - symImg[i][1]);
+  });
+  return pxPerMm > 0 && errPx / 4 / pxPerMm <= 4;
 }
 
 function classify(boxes: BoxRead[]): Reading {
@@ -88,7 +156,7 @@ function classify(boxes: BoxRead[]): Reading {
 
 export function readSheet(img: RGBA, opts: { maxDim?: number } = {}): ReadResult {
   const maxDim = opts.maxDim ?? 1600;
-  // jsQR can miss a noisy photo at full size; a smoothing downscale gives it a second chance.
+  // The retry exists because jsQR can miss a noisy full-size photo that a smoothing downscale reads fine.
   let image = downscale(img, maxDim);
   let qr = jsQR(image.data, image.width, image.height, { inversionAttempts: 'attemptBoth' });
   if (!qr) {
@@ -112,29 +180,16 @@ export function readSheet(img: RGBA, opts: { maxDim?: number } = {}): ReadResult
     [loc.bottomRightCorner.x, loc.bottomRightCorner.y], [loc.bottomLeftCorner.x, loc.bottomLeftCorner.y],
   ];
 
-  const noAlign = () => fail('no-alignment', 'Could not find all four corner squares. Retake the photo with the whole sheet in view.');
-  let H: number[];
-  let blobs: Blob[] | null;
-  try {
-    const Hq = homography(symPage, symImg);
-    const predicted = fiducialCenters().map((c) => applyH(Hq, c));
-    blobs = pickFiducials(gray, predicted);
-    if (!blobs) return noAlign();
-    H = homography(fiducialCenters(), blobs.map((b) => [b.cx, b.cy] as Pt));
-  } catch {
-    return noAlign();
+  let Hq: number[];
+  try { Hq = homography(symPage, symImg); } catch {
+    return fail('no-alignment', 'Could not locate the sheet from the QR code. Retake the photo with the whole sheet in view.');
   }
-
-  const mid: Pt = [(sym.tl[0] + sym.br[0]) / 2, (sym.tl[1] + sym.br[1]) / 2];
-  const pxPerMm = scaleAt(H, mid);
-  let errPx = 0;
-  symPage.forEach((p, i) => {
-    const q = applyH(H, p);
-    errPx += Math.hypot(q[0] - symImg[i][0], q[1] - symImg[i][1]);
-  });
-  errPx /= 4;
-  if (!(pxPerMm > 0) || errPx / pxPerMm > 4)
-    return fail('alignment-mismatch', 'The corner squares and the QR code disagree about where the sheet is. Retake the photo flat and fully in view.');
+  const aligned = align(gray, Hq, symPage, symImg);
+  if ('reason' in aligned)
+    return aligned.reason === 'no-alignment'
+      ? fail('no-alignment', 'Could not find all four corner squares. Retake the photo with the whole sheet in view.')
+      : fail('alignment-mismatch', 'The corner squares, QR code and checkboxes do not agree about where the sheet is. Retake the photo flat and fully in view.');
+  const H = aligned.H;
 
   const rows: RowRead[] = [];
   for (let r = 0; r < 6; r++) {

@@ -6,6 +6,8 @@ import { renderSheetRaster, type FixtureMark } from '../sheet/raster';
 import { simulatePhoto, type PhotoOptions } from '../sheet/simulate';
 import { readSheet } from './read';
 
+/** Fixed so the ok-rate gate is deterministic; change it to explore other photo conditions. */
+const PROPERTY_SEED = 20261126;
 const id = 'abcdefghik';
 const rows = Array.from({ length: 6 }, (_, i) => ({
   binId: `B-${i}`, label: `Bin ${i}`, printedStatus: 'ready' as const, printedRev: 1,
@@ -33,7 +35,7 @@ const truthArb: fc.Arbitrary<Truth> = fc.oneof(
 );
 const unit = fc.double({ min: -1, max: 1, noNaN: true });
 
-let total = 0, okCount = 0;
+let total = 0, okCount = 0, failedOnce = false;
 afterAll(() => {
   expect(okCount / total).toBeGreaterThanOrEqual(0.9);
 });
@@ -64,9 +66,11 @@ describe('readSheet properties', () => {
             lightGradient, noise, background: 90, seed,
           });
           const r = readSheet(photo);
-          total++;
+          // Count first-pass runs only: after a failure fast-check re-runs the property while shrinking.
+          if (!failedOnce) total++;
           if (!r.ok) return;
-          okCount++;
+          if (!failedOnce) okCount++;
+          try {
           r.rows.forEach((row, i) => {
             const truth = truths[i];
             const reading: Reading = row.reading;
@@ -78,9 +82,10 @@ describe('readSheet properties', () => {
             if (truth.t === 'x') expect(reading.kind).not.toBe('blank');
             if (reading.kind === 'double') expect(truth.t === 'x' && truth.cols.length === 2).toBe(true);
           });
+          } catch (e) { failedOnce = true; throw e; }
         },
       ),
-      { numRuns: 25 },
+      { numRuns: 25, seed: PROPERTY_SEED },
     );
   }, 120_000);
 });

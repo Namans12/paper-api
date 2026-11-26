@@ -1,9 +1,10 @@
 import { defaultPhotoOptions, simulatePhoto, type PhotoOptions } from '../sheet/simulate';
 import { renderSheetRaster, type FixtureMark, type RGBA } from '../sheet/raster';
-import { rowRect } from '../sheet/layout';
+import { boxRect, rowRect } from '../sheet/layout';
 import type { Reading } from '../domain/types';
 import type { Pt } from '../geometry/homography';
-import { readSheet, renderCrop } from './read';
+import { toGray } from './image';
+import { readSheet, registrationScore, renderCrop, REGISTRATION_MIN } from './read';
 
 const id = 'abcdefghik';
 const rows = Array.from({ length: 6 }, (_, i) => ({
@@ -118,5 +119,56 @@ describe('readSheet', () => {
     expect(crop.width).toBe(Math.round(182 * 6));
     expect(crop.height).toBe(Math.round(rect.h * 6));
     expect(crop.data.length).toBe(crop.width * crop.height * 4);
+  });
+
+  it('rejects a filled box picked in place of an occluded fiducial', () => {
+    const paint = (page: RGBA, x0: number, y0: number, w: number, h: number, v: number) => {
+      const px = 4;
+      for (let y = Math.round(y0 * px); y < Math.round((y0 + h) * px); y++)
+        for (let x = Math.round(x0 * px); x < Math.round((x0 + w) * px); x++)
+          for (let c = 0; c < 3; c++) page.data[(y * page.width + x) * 4 + c] = v;
+    };
+    for (const seed of [2, 4, 5, 6])
+      for (const patch of [250, 200]) {
+        const page = renderSheetRaster(sheet, []);
+        paint(page, 194 - 7.5, 281 - 7.5, 15, 15, patch);
+        const b = boxRect(5, 2);
+        paint(page, b.x, b.y, b.w, b.h, 25);
+        const r = readSheet(simulatePhoto(page, defaultPhotoOptions(seed)));
+        if (r.ok) {
+          const reading = r.rows[5].reading;
+          expect(reading.kind === 'mark' ? reading.status : 'unavailable', `seed ${seed} patch ${patch}`).toBe('unavailable');
+        } else expect(['no-alignment', 'alignment-mismatch']).toContain(r.reason);
+      }
+  });
+
+  it('registration check rejects an H shifted by 3 mm', () => {
+    const r = readSheet(simulatePhoto(renderSheetRaster(sheet, fixtureMarks), defaultPhotoOptions(7)));
+    if (!r.ok) throw new Error(r.reason);
+    const gray = toGray(r.image);
+    expect(registrationScore(gray, r.H)).toBeGreaterThanOrEqual(0.95);
+    const shifted = (dx: number, dy: number) => {
+      // translate in page mm before applying H: H' = H * T
+      const T = [1, 0, dx, 0, 1, dy, 0, 0, 1];
+      const m = (a: number[], b: number[]) => {
+        const o = new Array(9).fill(0);
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) for (let k = 0; k < 3; k++) o[i * 3 + j] += a[i * 3 + k] * b[k * 3 + j];
+        return o;
+      };
+      return m(r.H.length === 9 ? r.H : [...r.H, 1], T);
+    };
+    expect(registrationScore(gray, shifted(3, 0))).toBeLessThan(REGISTRATION_MIN);
+    expect(registrationScore(gray, shifted(0, 3))).toBeLessThan(REGISTRATION_MIN);
+  });
+
+  it('falls back to a smaller scale when jsQR misses the full-size photo', () => {
+    const img = simulatePhoto(renderSheetRaster(sheet, fixtureMarks), { ...defaultPhotoOptions(1), noise: 14, lightGradient: 0 });
+    const r = readSheet(img);
+    if (!r.ok) throw new Error(r.reason);
+    expect([r.image.width, r.image.height]).toEqual([720, 960]);
+    expect(r.rows.map((x) => x.reading)).toEqual(expected);
+    const crop = renderCrop(r.image, r.H, rowRect(0));
+    expect([crop.width, crop.height]).toEqual([Math.round(182 * 6), Math.round(26 * 6)]);
+    expect(registrationScore(toGray(r.image), r.H)).toBeGreaterThanOrEqual(REGISTRATION_MIN);
   });
 });
