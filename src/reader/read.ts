@@ -14,7 +14,7 @@ export const REGISTRATION_MIN = 0.85;
 export const FIDUCIAL_GATE_MM = 80;
 
 export type ReadFailure = 'no-qr' | 'bad-payload' | 'no-alignment' | 'alignment-mismatch';
-export interface BoxRead { status: Status; score: number }
+export interface BoxRead { status: Status; score: number; registered?: boolean }
 export interface RowRead { row: number; boxes: BoxRead[]; reading: Reading }
 export type ReadResult =
   | { ok: false; reason: ReadFailure; message: string }
@@ -63,33 +63,45 @@ function boxScore(gray: Gray, H: number[], b: Rect): number {
 
 const BORDER_CENTRE = 0.3, BORDER_SEARCH = 1.0;
 
-/** Fraction of checkbox-border probe points (18 boxes x 4 sides x 3) whose darkest pixel within +-1 mm is ink. */
-export function registrationScore(gray: Gray, H: number[]): number {
-  let found = 0, total = 0;
-  for (let r = 0; r < 6; r++)
-    for (let c = 0; c < 3; c++) {
-      const b = boxRect(r, c);
-      const cutoff = INK_RATIO * ringWhite(gray, H, b);
-      for (const f of [0.25, 0.5, 0.75]) {
-        const a = f * b.w;
-        // [point on the border line, unit direction perpendicular to the side]
-        const probes: [Pt, Pt][] = [
-          [[b.x + a, b.y + BORDER_CENTRE], [0, 1]], [[b.x + a, b.y + b.h - BORDER_CENTRE], [0, 1]],
-          [[b.x + BORDER_CENTRE, b.y + a], [1, 0]], [[b.x + b.w - BORDER_CENTRE, b.y + a], [1, 0]],
-        ];
-        for (const [p, n] of probes) {
-          total++;
-          let darkest = 255;
-          for (let k = -10; k <= 10; k++) {
-            const t = (k / 10) * BORDER_SEARCH;
-            const q = applyH(H, [p[0] + n[0] * t, p[1] + n[1] * t]);
-            darkest = Math.min(darkest, sampleGray(gray, q[0], q[1]));
-          }
-          if (darkest < cutoff) found++;
-        }
+/** A box counts as registered when >= BOX_HITS_MIN of its 12 border probes are found and every side has >= SIDE_HITS_MIN of 3. */
+export const BOX_HITS_MIN = 11, SIDE_HITS_MIN = 2;
+/** More unregistered boxes than this and the whole page is rejected as misaligned. */
+export const MAX_UNREGISTERED_BOXES = 3;
+
+/** Border probes of one box: 3 points on each of its 4 sides, found when the darkest pixel within +-1 mm is ink. */
+export function boxBorderHits(gray: Gray, H: number[], b: Rect): { hits: number; sides: number[] } {
+  const cutoff = INK_RATIO * ringWhite(gray, H, b);
+  const sides = [0, 0, 0, 0];
+  for (const f of [0.25, 0.5, 0.75]) {
+    const a = f * b.w;
+    // [point on the border line, unit direction perpendicular to the side]
+    const probes: [Pt, Pt][] = [
+      [[b.x + a, b.y + BORDER_CENTRE], [0, 1]], [[b.x + a, b.y + b.h - BORDER_CENTRE], [0, 1]],
+      [[b.x + BORDER_CENTRE, b.y + a], [1, 0]], [[b.x + b.w - BORDER_CENTRE, b.y + a], [1, 0]],
+    ];
+    probes.forEach(([p, n], side) => {
+      let darkest = 255;
+      for (let k = -10; k <= 10; k++) {
+        const t = (k / 10) * BORDER_SEARCH;
+        const q = applyH(H, [p[0] + n[0] * t, p[1] + n[1] * t]);
+        darkest = Math.min(darkest, sampleGray(gray, q[0], q[1]));
       }
-    }
-  return found / total;
+      if (darkest < cutoff) sides[side]++;
+    });
+  }
+  return { hits: sides[0] + sides[1] + sides[2] + sides[3], sides };
+}
+
+export function boxRegistered(gray: Gray, H: number[], b: Rect): boolean {
+  const { hits, sides } = boxBorderHits(gray, H, b);
+  return hits >= BOX_HITS_MIN && sides.every((n) => n >= SIDE_HITS_MIN);
+}
+
+/** Fraction of checkbox-border probe points (18 boxes x 4 sides x 3) that are found. */
+export function registrationScore(gray: Gray, H: number[]): number {
+  let found = 0;
+  for (let r = 0; r < 6; r++) for (let c = 0; c < 3; c++) found += boxBorderHits(gray, H, boxRect(r, c)).hits;
+  return found / (18 * 12);
 }
 
 const PER_CORNER = 3;
@@ -146,7 +158,7 @@ function qrAgrees(H: number[], symPage: Pt[], symImg: Pt[]): boolean {
 }
 
 function classify(boxes: BoxRead[]): Reading {
-  const cls = boxes.map((b) => (b.score >= MARK_THRESHOLD ? 'mark' : b.score <= EMPTY_THRESHOLD ? 'empty' : 'uncertain'));
+  const cls = boxes.map((b) => (b.registered === false ? 'uncertain' : b.score >= MARK_THRESHOLD ? 'mark' : b.score <= EMPTY_THRESHOLD ? 'empty' : 'uncertain'));
   if (cls.includes('uncertain')) return { kind: 'uncertain' };
   const marked = boxes.filter((_, i) => cls[i] === 'mark').map((b) => b.status);
   if (marked.length === 0) return { kind: 'blank' };
@@ -191,11 +203,18 @@ export function readSheet(img: RGBA, opts: { maxDim?: number } = {}): ReadResult
       : fail('alignment-mismatch', 'The corner squares, QR code and checkboxes do not agree about where the sheet is. Retake the photo flat and fully in view.');
   const H = aligned.H;
 
+  let unregistered = 0;
   const rows: RowRead[] = [];
   for (let r = 0; r < 6; r++) {
-    const boxes: BoxRead[] = STATUSES.map((status, c) => ({ status, score: boxScore(gray, H, boxRect(r, c)) }));
+    const boxes: BoxRead[] = STATUSES.map((status, c) => {
+      const rect = boxRect(r, c);
+      return { status, score: boxScore(gray, H, rect), registered: boxRegistered(gray, H, rect) };
+    });
+    unregistered += boxes.filter((b) => !b.registered).length;
     rows.push({ row: r, boxes, reading: classify(boxes) });
   }
+  if (unregistered > MAX_UNREGISTERED_BOXES)
+    return fail('alignment-mismatch', 'Too many checkboxes do not line up with the sheet layout. Retake the photo flat and fully in view.');
   return { ok: true, sheetId: payload.sheetId, H, image, rows };
 }
 
