@@ -118,7 +118,9 @@ export function classify(a: Answer, file: string | null): Outcome {
     const j = judge(truth, read);
     if (j === 'wrong') wrong = true;
     if (j === 'flag') flag = true;
-    lines.push(`bin ${i + 1}: expected ${truth}, read ${show(read)}${j === 'ok' ? '' : j === 'flag' ? '  <- FLAGGED' : '  <- INCORRECT'}`);
+    const rb = r.rows[i];
+    const scores = `boxes [${rb.boxes.map((x) => x.score.toFixed(3)).join(' ')}]${rb.boxes.some((x) => x.registered === false) ? ' unregistered' : ''}`;
+    lines.push(`bin ${i + 1}: expected ${truth}, read ${show(read)}  ${scores}${j === 'ok' ? '' : j === 'flag' ? '  <- FLAGGED' : '  <- INCORRECT'}`);
   });
   return out(wrong ? 'incorrect' : flag ? 'flagged' : 'passing', lines);
 }
