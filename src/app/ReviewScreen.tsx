@@ -20,7 +20,7 @@ export interface ReviewInput {
   fixture: boolean;
 }
 
-const SHORT: Record<string, string> = { ready: 'Ready', 'needs-inspection': 'Needs insp.', unavailable: 'Unavail.' };
+const SHORT: Record<string, string> = { ready: 'Ready', 'needs-inspection': 'Needs', unavailable: 'Unavail.' };
 
 function Crop({ canvas, label }: { canvas: HTMLCanvasElement; label: string }) {
   const host = useRef<HTMLDivElement>(null);
@@ -34,9 +34,7 @@ function Crop({ canvas, label }: { canvas: HTMLCanvasElement; label: string }) {
     <div className="crop">
       <div className="crop-cols" aria-hidden="true">
         {STATUSES.map((st, i) => (
-          <span key={st} style={{ left: `${centers[i] * 100}%` }}>
-            <span className="long">{STATUS_LABEL[st]}</span><span className="short">{SHORT[st]}</span>
-          </span>
+          <span key={st} title={STATUS_LABEL[st]} style={{ left: `${centers[i] * 100}%` }}>{SHORT[st]}</span>
         ))}
       </div>
       <div ref={host} />

@@ -28,9 +28,11 @@ function Shell() {
   const hash = useHash();
   const [tab, setTab] = useState<Tab>('desk');
   const [pending, setPending] = useState<PendingImport | null>(null);
+  const [resetKey, setResetKey] = useState(0);
   const counter = useRef(0);
 
   const startImport = useCallback((img: PendingImport['img'], source: PendingImport['source']) => {
+    if (window.location.hash.startsWith('#/receipt/')) window.location.hash = '';
     setPending({ img, source, key: ++counter.current });
     setTab('import');
   }, []);
@@ -43,6 +45,8 @@ function Shell() {
     if (!window.confirm('Reset clears all bins, sheets and receipts in this browser. Continue?')) return;
     await store.reset();
     setPending(null);
+    setResetKey((k) => k + 1);
+    if (window.location.hash.startsWith('#/receipt/')) window.location.hash = '';
     bump();
   };
 
@@ -68,7 +72,7 @@ function Shell() {
         {activeTab === 'desk' && <DeskPanel />}
         {activeTab === 'sheets' && <SheetsPanel />}
         {/* Always mounted so an in-progress review survives tab switches. */}
-        <div hidden={activeTab !== 'import'}><ImportPanel pending={pending} receiptId={receiptId} /></div>
+        <div hidden={activeTab !== 'import'}><ImportPanel key={resetKey} pending={pending} receiptId={receiptId} /></div>
       </main>
       <footer className="app-foot">
         <span>Data lives only in this browser (IndexedDB ‘paper-api’). Reset clears bins, sheets and receipts.</span>
