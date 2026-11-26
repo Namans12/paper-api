@@ -3,6 +3,7 @@ import type { Receipt } from '../domain/types';
 import { readSheet, type ReadFailure } from '../reader/read';
 import { fileToRGBA } from './canvas';
 import type { PendingImport } from './ImportContext';
+import { isFixtureFileName } from './review-model';
 import { ReceiptView } from './ReceiptView';
 import { ReviewScreen, type ReviewInput } from './ReviewScreen';
 import { useStore } from './StoreContext';
@@ -47,7 +48,7 @@ export function ImportPanel({ pending, receiptId }: { pending: PendingImport | n
     const current = () => mine === token.current;
     setPhase({ kind: 'reading' });
     try {
-      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 30)); // let "Reading photo…" paint before the synchronous read
       const result = readSheet(img);
       if (!current()) return;
       if (!result.ok) { setPhase({ kind: 'failed', message: `${FAIL_COPY[result.reason]} No changes made.` }); return; }
@@ -79,19 +80,22 @@ export function ImportPanel({ pending, receiptId }: { pending: PendingImport | n
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
+    const mine = ++token.current;
+    setPhase({ kind: 'reading' });
     try {
       const img = await fileToRGBA(file);
-      await run(img, false);
+      if (mine !== token.current) return;
+      await run(img, isFixtureFileName(file.name));
     } catch {
       token.current++;
       setPhase({ kind: 'failed', message: 'Couldn’t open that file as an image. No changes made.' });
     }
   };
 
-  if (receiptId) return <ReceiptRoute sheetId={decodeURIComponent(receiptId)} />;
-
   return (
-    <section aria-labelledby="import-h">
+    <>
+    {receiptId && <ReceiptRoute sheetId={decodeURIComponent(receiptId)} />}
+    <section aria-labelledby="import-h" hidden={!!receiptId}>
       <h2 id="import-h">Import: read a marked sheet</h2>
       <p>
         <label>
@@ -111,5 +115,6 @@ export function ImportPanel({ pending, receiptId }: { pending: PendingImport | n
       )}
       {phase.kind === 'receipt' && <ReceiptView receipt={phase.receipt} already={phase.already} fixture={phase.fixture} />}
     </section>
+    </>
   );
 }

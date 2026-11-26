@@ -64,3 +64,9 @@ a { color: var(--accent); }
 button[aria-pressed='true'] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
 .confirm-bar { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 0; margin-top: 1rem; background: var(--bg); border-top: 1px solid var(--line); }
 button.primary:not(:disabled) { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+.crop { width: 28rem; max-width: 100%; }
+.crop canvas { width: 100%; }
+.crop-cols { position: relative; height: 1.3rem; font-size: .8rem; font-weight: 600; color: var(--muted); }
+.crop-cols > span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.crop-cols .short { display: none; }
+@media (max-width: 480px) { .crop-cols .long { display: none; } .crop-cols .short { display: inline; } }

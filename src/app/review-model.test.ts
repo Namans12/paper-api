@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ReviewRow } from '../store/db';
 import type { Reading, Status } from '../domain/types';
-import { canConfirm, decide, initReview, refreshAfterStale, rowView, sortedRows, toConfirmRequest } from './review-model';
+import { boxCenterFractions, isFixtureFileName, canConfirm, decide, initReview, refreshAfterStale, rowView, sortedRows, toConfirmRequest } from './review-model';
 
 const row = (n: number, printed: Status, printedRev: number, desk: Status, deskRev: number): ReviewRow => ({
   binId: `bin-${n}`,
@@ -96,5 +96,14 @@ describe('review-model', () => {
     expect(canConfirm(s)).toBe(true);
     s = decide(s, 'bin-4', { reading: blank });
     expect(rowView(get(s, 'bin-4')).badge).toBe('Unchanged');
+  });
+
+  it('column label positions follow the layout and fixture files are recognised', () => {
+    const f = boxCenterFractions();
+    expect(f).toHaveLength(3);
+    expect(f[0]).toBeCloseTo((112 + 6 - 14) / 182);
+    expect(f[2]).toBeCloseTo((172 + 6 - 14) / 182);
+    expect(isFixtureFileName('fixture-abc.png')).toBe(true);
+    expect(isFixtureFileName('IMG_1.jpg')).toBe(false);
   });
 });

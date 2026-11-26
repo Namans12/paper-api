@@ -7,7 +7,7 @@ import { rowRect } from '../sheet/layout';
 import { rgbaToCanvas } from './canvas';
 import { useStore } from './StoreContext';
 import {
-  canConfirm, decide, initReview, readingWords, refreshAfterStale, rowView, sortedRows, toConfirmRequest,
+  boxCenterFractions, canConfirm, decide, initReview, readingWords, refreshAfterStale, rowView, sortedRows, toConfirmRequest,
   type ReviewRowState, type ReviewState,
 } from './review-model';
 
@@ -20,6 +20,8 @@ export interface ReviewInput {
   fixture: boolean;
 }
 
+const SHORT: Record<string, string> = { ready: 'Ready', 'needs-inspection': 'Needs insp.', unavailable: 'Unavail.' };
+
 function Crop({ canvas, label }: { canvas: HTMLCanvasElement; label: string }) {
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -27,31 +29,43 @@ function Crop({ canvas, label }: { canvas: HTMLCanvasElement; label: string }) {
     canvas.setAttribute('role', 'img');
     canvas.setAttribute('aria-label', label);
   }, [canvas, label]);
-  return <div ref={host} className="crop" />;
+  const centers = boxCenterFractions();
+  return (
+    <div className="crop">
+      <div className="crop-cols" aria-hidden="true">
+        {STATUSES.map((st, i) => (
+          <span key={st} style={{ left: `${centers[i] * 100}%` }}>
+            <span className="long">{STATUS_LABEL[st]}</span><span className="short">{SHORT[st]}</span>
+          </span>
+        ))}
+      </div>
+      <div ref={host} />
+    </div>
+  );
 }
 
 const BADGE_CLASS: Record<string, string> = {
   Conflict: 'badge-danger', 'Check mark': 'badge-warn', 'Clean edit': 'badge-info', Applied: 'badge-info',
 };
 
-function Card({ row, crop, onDecide }: { row: ReviewRowState; crop: HTMLCanvasElement; onDecide: (d: ReviewRowState['decision']) => void }) {
+function Card({ row, crop, fixture, busy, onDecide }: { row: ReviewRowState; crop: HTMLCanvasElement; fixture: boolean; busy: boolean; onDecide: (d: ReviewRowState['decision']) => void }) {
   const { resolution, badge } = rowView(row);
   const { decision, observed, input } = row;
   const needsReadingRow = observed.kind === 'double' || observed.kind === 'uncertain';
   const cls = resolution.cls;
   const choiceBtn = (choice: 'keep-desk' | 'accept-paper' | 'defer', text: string, pressed: boolean) => (
-    <button type="button" aria-pressed={pressed} onClick={() => onDecide({ ...decision, choice })}>{text}</button>
+    <button type="button" disabled={busy} aria-pressed={pressed} onClick={() => onDecide({ ...decision, choice })}>{text}</button>
   );
   const readsAs = (r: Reading, text: string) => {
     const pressed = decision.reading?.kind === r.kind && (r.kind !== 'mark' || (decision.reading.kind === 'mark' && decision.reading.status === r.status));
-    return <button key={text} type="button" aria-pressed={pressed} onClick={() => onDecide({ reading: r })}>{text}</button>;
+    return <button key={text} type="button" disabled={busy} aria-pressed={pressed} onClick={() => onDecide({ reading: r })}>{text}</button>;
   };
   return (
     <article className={`review-card cls-${cls}`} aria-label={row.label}>
       <h3>{row.label} <span className={`badge ${BADGE_CLASS[badge] ?? ''}`}>{badge}</span></h3>
       {row.staleNotice && <p role="alert" className="banner banner-warn">{row.staleNotice}</p>}
       <div className="card-body">
-        <Crop canvas={crop} label={`Photo of ${row.label} row`} />
+        <Crop canvas={crop} label={`${fixture ? 'FIXTURE photo' : 'Photo'} of ${row.label} row`} />
         <dl className="values">
           <div><dt>Printed</dt><dd>{STATUS_LABEL[input.printed]}</dd></div>
           <div><dt>Desk now</dt><dd>{STATUS_LABEL[input.desk]}</dd></div>
@@ -114,7 +128,7 @@ export function ReviewScreen({ input, onReceipt }: { input: ReviewInput; onRecei
           const p = await store.prepareReview(state.sheetId, state.rows.map((r) => r.observed));
           if (p.kind === 'receipt') { onReceipt(p.receipt, true); break; }
           if (p.kind !== 'review') { setError('This sheet is no longer available. No changes made.'); break; }
-          setState(refreshAfterStale(state, p.rows, res.binIds));
+          setState((s) => refreshAfterStale(s, p.rows, res.binIds));
           const names = res.binIds.map((id) => state.rows.find((r) => r.binId === id)?.label ?? id);
           setBanner(`The desk changed while you were reviewing: ${names.join(', ')}. Review ${res.binIds.length === 1 ? 'it' : 'them'} again. No changes made.`);
           break;
@@ -145,7 +159,7 @@ export function ReviewScreen({ input, onReceipt }: { input: ReviewInput; onRecei
       {error && <p role="alert" className="banner banner-danger">{error}</p>}
       <div className="review-list">
         {ordered.map((r) => (
-          <Card key={r.binId} row={r} crop={crops.get(r.binId)!} onDecide={(d) => { setBanner(null); setState((s) => decide(s, r.binId, d)); }} />
+          <Card key={r.binId} row={r} crop={crops.get(r.binId)!} fixture={input.fixture} busy={busy} onDecide={(d) => { setBanner(null); setState((s) => decide(s, r.binId, d)); }} />
         ))}
       </div>
       <div className="confirm-bar">

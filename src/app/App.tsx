@@ -67,7 +67,8 @@ function Shell() {
       <main>
         {activeTab === 'desk' && <DeskPanel />}
         {activeTab === 'sheets' && <SheetsPanel />}
-        {activeTab === 'import' && <ImportPanel pending={pending} receiptId={receiptId} />}
+        {/* Always mounted so an in-progress review survives tab switches. */}
+        <div hidden={activeTab !== 'import'}><ImportPanel pending={pending} receiptId={receiptId} /></div>
       </main>
       <footer className="app-foot">
         <span>Data lives only in this browser (IndexedDB ‘paper-api’). Reset clears bins, sheets and receipts.</span>

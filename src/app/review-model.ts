@@ -1,3 +1,4 @@
+import { BOX_SIZE, BOX_XS, rowRect } from '../sheet/layout';
 import { classify, resolveRow } from '../domain/reconcile';
 import { STATUS_LABEL, type Reading, type Resolution, type RowDecision } from '../domain/types';
 import type { ConfirmRequest, ReviewRow } from '../store/db';
@@ -85,4 +86,15 @@ export function readingWords(r: Reading): string {
     case 'double': return 'Two boxes marked';
     case 'uncertain': return 'Unclear mark';
   }
+}
+
+/** Horizontal centre of each status box (STATUSES order) as a fraction of the row crop's width. */
+export function boxCenterFractions(): number[] {
+  const { x, w } = rowRect(0);
+  return BOX_XS.map((bx) => (bx + BOX_SIZE / 2 - x) / w);
+}
+
+/** True when an uploaded file is a downloaded FIXTURE photo (named fixture-<id>.png). */
+export function isFixtureFileName(name: string): boolean {
+  return name.startsWith('fixture-');
 }
