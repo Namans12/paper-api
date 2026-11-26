@@ -1,6 +1,13 @@
 node_modules
 dist
 .superpowers/
+.claude/
 captures/*.jpg
 captures/*.jpeg
-.claude/
+captures/*.JPG
+captures/*.JPEG
+captures/*.png
+captures/*.PNG
+captures/*.heic
+captures/*.HEIC
+captures/answers.json

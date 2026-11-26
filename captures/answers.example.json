@@ -1,0 +1,12 @@
+[
+  {
+    "file": "sheet1-daylight-1.jpg",
+    "sheetId": "REPLACE-WITH-ID-FROM-SHEETS-TAB",
+    "rows": ["blank", "unavailable", "blank", "needs-inspection", "ready", "ambiguous"]
+  },
+  {
+    "file": "sheet2-indoor-1.jpg",
+    "sheetId": "REPLACE-WITH-OTHER-SHEET-ID",
+    "rows": ["ready", "blank", "ambiguous", "unavailable", "blank", "needs-inspection"]
+  }
+]
