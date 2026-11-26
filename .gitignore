@@ -3,3 +3,4 @@ dist
 .superpowers/
 captures/*.jpg
 captures/*.jpeg
+.claude/
