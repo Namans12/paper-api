@@ -103,6 +103,7 @@ export function ImportPanel({ pending, receiptId }: { pending: PendingImport | n
           <input type="file" accept="image/*" capture="environment" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
         </label>
       </p>
+      <p className="muted">Import the photo in the same browser that issued the sheet — take it with your phone, then send it to this computer (AirDrop, email, or cable).</p>
       {phase.kind === 'idle' && <p className="muted">No photo imported yet. Choose a photo, or make a FIXTURE photo on the Sheets tab.</p>}
       {phase.kind === 'reading' && <p role="status">Reading photo…</p>}
       {phase.kind === 'failed' && <p role="alert" className="banner banner-danger">{phase.message}</p>}

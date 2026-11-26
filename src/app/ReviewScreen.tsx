@@ -22,7 +22,7 @@ export interface ReviewInput {
 
 const SHORT: Record<string, string> = { ready: 'Ready', 'needs-inspection': 'Needs', unavailable: 'Unavail.' };
 
-function Crop({ canvas, label }: { canvas: HTMLCanvasElement; label: string }) {
+function Crop({ canvas, label, fixture }: { canvas: HTMLCanvasElement; label: string; fixture: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     host.current?.replaceChildren(canvas);
@@ -38,6 +38,7 @@ function Crop({ canvas, label }: { canvas: HTMLCanvasElement; label: string }) {
         ))}
       </div>
       <div ref={host} />
+      {fixture && <span className="tag-fixture crop-fixture">FIXTURE</span>}
     </div>
   );
 }
@@ -63,7 +64,7 @@ function Card({ row, crop, fixture, busy, onDecide }: { row: ReviewRowState; cro
       <h3>{row.label} <span className={`badge ${BADGE_CLASS[badge] ?? ''}`}>{badge}</span></h3>
       {row.staleNotice && <p role="alert" className="banner banner-warn">{row.staleNotice}</p>}
       <div className="card-body">
-        <Crop canvas={crop} label={`${fixture ? 'FIXTURE photo' : 'Photo'} of ${row.label} row`} />
+        <Crop canvas={crop} fixture={fixture} label={`${fixture ? 'FIXTURE photo' : 'Photo'} of ${row.label} row`} />
         <dl className="values">
           <div><dt>Printed</dt><dd>{STATUS_LABEL[input.printed]}</dd></div>
           <div><dt>Desk now</dt><dd>{STATUS_LABEL[input.desk]}</dd></div>

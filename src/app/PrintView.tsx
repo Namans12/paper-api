@@ -20,7 +20,7 @@ export function PrintView({ sheetId }: { sheetId: string }) {
       <style>{'@page { size: A4; margin: 0 }'}</style>
       <div className="no-print print-bar">
         <button type="button" onClick={() => window.print()}>Print</button>
-        <span>Print at 100% scale (no “fit to page”), on plain white paper.</span>
+        <span>Print on A4 at 100% scale (on Letter paper, use “Fit to page”), on plain white paper.</span>
       </div>
       <SheetSvg sheet={sheet} />
     </div>

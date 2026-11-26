@@ -12,7 +12,7 @@ const OPTIONS: Array<{ value: Choice; label: string }> = [
   { value: '', label: 'Blank' },
   { value: 'ready', label: 'Ready' },
   { value: 'needs-inspection', label: 'Needs' },
-  { value: 'unavailable', label: 'Unavail' },
+  { value: 'unavailable', label: 'Unavail.' },
   { value: 'stray', label: 'Stray' },
 ];
 
@@ -76,7 +76,7 @@ export function FixtureMaker({ sheet, onClose }: { sheet: Sheet; onClose(): void
     a.href = url;
     a.download = `fixture-${sheet.id}.png`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000); // Safari cancels the download if revoked immediately
   };
 
   return (

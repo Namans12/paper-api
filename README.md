@@ -20,16 +20,16 @@ Open the address that `npm run dev` prints. Requires Node 22. Everything runs in
 5. Press **Generate photo**, then **Download PNG** (keep the file), then **Import this photo**.
 6. The review shows bin 4 **Conflict** (Printed Ready, Desk now Unavailable, Paper Needs inspection), bin 2 **Clean edit** and bin 5 **Agrees**.
 7. Choose **Keep desk** on bin 4.
-8. Optional stale check: open the app in a second tab and change bin 2 at the Desk. Return to the first tab and press **Apply reviewed changes**. A banner says "The desk changed while you were reviewing" and bin 2 shows Conflict. Choose **Keep desk** (or **Accept paper**) on bin 2.
+8. Optional stale check: open the app in a second tab and set bin 2 to **Needs inspection** at the Desk. Return to the first tab and press **Apply reviewed changes**. A banner says "The desk changed while you were reviewing" and bin 2 shows Conflict. Choose **Keep desk** (or **Accept paper**) on bin 2.
 9. Press **Apply reviewed changes**. A receipt is shown.
 10. On the Import tab, choose the downloaded PNG with the file picker. You get "Already applied — this is the original receipt."
 
 ## How it works
 
 1. **Issue** a sheet: the app records each bin's status and revision as printed.
-2. **Print** it on A4 at 100%.
+2. **Print** it on A4 at 100% (on Letter paper, choose "Fit to page").
 3. **Mark** with an X in a box per row.
-4. **Photo**: take a phone picture of the whole page.
+4. **Photo**: take a phone picture of the whole page. Import the photo in the same browser that issued the sheet: take it with your phone, then send it to this computer (AirDrop, email, or cable).
 5. **Read**: the QR code gives the sheet identity, the four black corner squares give alignment, and each box is measured for ink, with a per-box alignment check.
 6. **Review**: each row shows Printed, Desk now and Paper beside the photo crop. Choose Keep desk, Accept paper or Defer for recheck.
 7. **Confirm**: all chosen changes are applied in one transaction, with one receipt per sheet.

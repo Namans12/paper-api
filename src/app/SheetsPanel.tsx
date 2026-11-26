@@ -11,7 +11,11 @@ export function SheetsPanel() {
 
   useEffect(() => {
     let live = true;
-    store.listSheets().then((r) => { if (live) setRows(r); });
+    store.listSheets().then((r) => {
+      if (!live) return;
+      setRows(r);
+      setMakingFor((cur) => (cur && r.some((x) => x.sheet.id === cur.id) ? cur : null));
+    });
     return () => { live = false; };
   }, [store, version]);
 

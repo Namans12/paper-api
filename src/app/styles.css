@@ -66,5 +66,6 @@ button[aria-pressed='true'] { background: var(--accent); color: var(--accent-fg)
 button.primary:not(:disabled) { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
 .crop { width: 28rem; max-width: 100%; }
 .crop canvas { width: 100%; }
+.crop-fixture { margin-top: .25rem; }
 .crop-cols { position: relative; height: 1.3rem; font-size: .72rem; font-weight: 600; color: var(--muted); }
 .crop-cols > span { position: absolute; transform: translateX(-50%); white-space: nowrap; }

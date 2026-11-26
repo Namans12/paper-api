@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { SEED_BINS, openStore, type ConfirmRequest, type Store } from './db';
 import { newSheetId } from './ids';
 import type { Reading, RowDecision } from '../domain/types';
+import { classify } from '../domain/reconcile';
 
 const open: Store[] = [];
 async function fresh(): Promise<Store> {
@@ -195,5 +196,36 @@ describe('store', () => {
     const store = await fresh();
     const sheet = await store.issueSheet();
     await expect(store.prepareReview(sheet.id, [blank])).rejects.toThrow();
+  });
+
+  it('two sheets issued together are confirmed independently, each against its own printed rev', async () => {
+    const store = await fresh();
+    const a = await store.issueSheet();
+    const b = await store.issueSheet(); // issued before A is confirmed: bin-2 printed at rev 1
+    const pa = await store.prepareReview(a.id, [blank, mark('unavailable'), blank, blank, blank, blank]);
+    if (pa.kind !== 'review') throw new Error('expected review');
+    const reqFor = (p: typeof pa, sheetId: string, decisions: Record<string, RowDecision> = {}): ConfirmRequest => ({
+      sheetId,
+      rows: p.rows.map((r) => ({ binId: r.binId, deskRevSeen: r.input.deskRev, observed: r.input.reading, decision: decisions[r.binId] ?? {} })),
+    });
+    const ra = await store.confirm(reqFor(pa, a.id));
+    expect(ra.kind).toBe('committed');
+    expect((await store.listBins()).find((x) => x.id === 'bin-2')).toMatchObject({ status: 'unavailable', rev: 2 });
+
+    // Sheet B has no receipt, so it is reviewable, not "already applied".
+    const pb = await store.prepareReview(b.id, [blank, mark('needs-inspection'), blank, blank, blank, blank]);
+    expect(pb.kind).toBe('review');
+    if (pb.kind !== 'review') return;
+    const row2 = pb.rows.find((r) => r.binId === 'bin-2')!;
+    expect(row2.input).toMatchObject({ printed: 'ready', printedRev: 1, desk: 'unavailable', deskRev: 2 });
+    expect(classify(row2.input)).toBe('conflict');
+
+    const rb = await store.confirm(reqFor(pb, b.id, { 'bin-2': { choice: 'keep-desk' } }));
+    expect(rb.kind).toBe('committed');
+    if (rb.kind !== 'committed' || ra.kind !== 'committed') return;
+    expect(rb.receipt.sheetId).toBe(b.id);
+    expect(rb.receipt.sheetId).not.toBe(ra.receipt.sheetId);
+    expect(rb.receipt.appliedCount).toBe(0);
+    expect((await store.getReceipt(a.id))!.sheetId).toBe(a.id);
   });
 });
