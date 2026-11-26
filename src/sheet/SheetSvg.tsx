@@ -77,6 +77,7 @@ export function SheetSvg({ sheet }: { sheet: Sheet }) {
           return (
             <rect
               key={`${r}-${c}`}
+              data-role="checkbox"
               x={b.x + STROKE / 2}
               y={b.y + STROKE / 2}
               width={b.w - STROKE}

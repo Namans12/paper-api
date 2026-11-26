@@ -4,6 +4,7 @@ import { renderSheetRaster, type FixtureMark, type RGBA } from '../sheet/raster'
 import { defaultPhotoOptions, simulatePhoto } from '../sheet/simulate';
 import { rgbaToCanvas, rgbaToPngBlob } from './canvas';
 import { useImport } from './ImportContext';
+import { LABEL_STRIP_PX, withLabelStrip } from './fixtureLabel';
 
 type Choice = '' | Status | 'stray';
 const FIXTURE_LABEL = 'FIXTURE — synthetic photo';
@@ -46,13 +47,13 @@ export function FixtureMaker({ sheet, onClose }: { sheet: Sheet; onClose(): void
     // Let the "Rendering…" state paint before the synchronous raster work.
     setTimeout(() => {
       const page = renderSheetRaster(sheet, toMarks(choices), 4);
-      const sim = simulatePhoto(page, defaultPhotoOptions(Date.now() >>> 0));
+      const sim = withLabelStrip(simulatePhoto(page, defaultPhotoOptions(Date.now() >>> 0)));
       const canvas = rgbaToCanvas(sim);
       const ctx = canvas.getContext('2d')!;
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 28px system-ui, sans-serif';
-      ctx.textBaseline = 'top';
-      ctx.fillText(FIXTURE_LABEL, 16, 16);
+      ctx.font = 'bold 26px system-ui, sans-serif';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(FIXTURE_LABEL, 16, Math.round(LABEL_STRIP_PX * 0.7));
       const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
       setPhoto({ width: canvas.width, height: canvas.height, data });
       setWorking(false);
