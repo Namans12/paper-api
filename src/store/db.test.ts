@@ -156,4 +156,44 @@ describe('store', () => {
     expect(await store.listSheets()).toEqual([]);
     expect((await store.listBins()).every((b) => b.rev === 1 && b.source === 'seed')).toBe(true);
   });
+
+  it('deferred row is recorded on the receipt and keeps its desk value', async () => {
+    const store = await fresh();
+    const { req } = await prepared(store, { 'bin-4': { choice: 'defer' } });
+    const res = await store.confirm(req);
+    expect(res.kind).toBe('committed');
+    if (res.kind !== 'committed') return;
+    expect(res.receipt.rows.find((r) => r.binId === 'bin-4')).toMatchObject({ outcome: 'deferred', finalStatus: 'unavailable' });
+    expect((await store.listBins()).find((b) => b.id === 'bin-4')).toMatchObject({ status: 'unavailable', rev: 2 });
+  });
+
+  it('corrected reading is recorded on the receipt', async () => {
+    const store = await fresh();
+    const sheet = await store.issueSheet();
+    const readings: Reading[] = [{ kind: 'uncertain' }, blank, blank, blank, blank, blank];
+    const p = await store.prepareReview(sheet.id, readings);
+    if (p.kind !== 'review') throw new Error('expected review');
+    const correction = mark('unavailable');
+    const res = await store.confirm({
+      sheetId: sheet.id,
+      rows: p.rows.map((r) => ({
+        binId: r.binId,
+        deskRevSeen: r.input.deskRev,
+        observed: r.input.reading,
+        decision: r.binId === 'bin-1' ? { reading: correction } : {},
+      })),
+    });
+    expect(res.kind).toBe('committed');
+    if (res.kind !== 'committed') return;
+    expect(res.receipt.rows[0]).toMatchObject({
+      binId: 'bin-1', outcome: 'applied', corrected: correction, observed: { kind: 'uncertain' },
+    });
+    expect((await store.listBins())[0]).toMatchObject({ status: 'unavailable', rev: 2 });
+  });
+
+  it('prepareReview throws when readings length differs from sheet rows', async () => {
+    const store = await fresh();
+    const sheet = await store.issueSheet();
+    await expect(store.prepareReview(sheet.id, [blank])).rejects.toThrow();
+  });
 });

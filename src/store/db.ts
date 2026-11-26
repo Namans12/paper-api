@@ -136,6 +136,7 @@ export async function openStore(name: string = DB_NAME): Promise<Store> {
       await tx.objectStore('receipts').add(receipt);
       return { kind: 'committed', receipt };
     };
+    tx.done.catch(() => {}); // abort paths are handled below; avoid an unhandled rejection
     try {
       const result = await run();
       await tx.done;
