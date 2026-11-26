@@ -4,7 +4,7 @@ import { SheetsPanel } from './SheetsPanel';
 import { PrintView } from './PrintView';
 import { ImportContext, type PendingImport } from './ImportContext';
 import { StoreProvider, useStore } from './StoreContext';
-import { rgbaToCanvas } from './canvas';
+import { ImportPanel } from './ImportPanel';
 
 type Tab = 'desk' | 'sheets' | 'import';
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -21,29 +21,6 @@ function useHash(): string {
     return () => window.removeEventListener('hashchange', on);
   }, []);
   return hash;
-}
-
-/** Task 6 replaces this placeholder with the real import, review and receipt flow. */
-function ImportPlaceholder({ pending, receiptId }: { pending: PendingImport | null; receiptId?: string }) {
-  const host = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (host.current && pending) host.current.replaceChildren(rgbaToCanvas(pending.img));
-    else host.current?.replaceChildren();
-  }, [pending]);
-  return (
-    <section aria-labelledby="import-h">
-      <h2 id="import-h">Import: read a marked sheet</h2>
-      {receiptId && <p>Receipt for sheet <code>{receiptId}</code> is not available yet.</p>}
-      {pending ? (
-        <>
-          <p>Pending image ({pending.source === 'fixture' ? 'FIXTURE, synthetic' : 'uploaded'}): review comes next.</p>
-          <div ref={host} className="fixture-preview" />
-        </>
-      ) : (
-        <p className="muted">No photo imported yet. Make a FIXTURE photo on the Sheets tab.</p>
-      )}
-    </section>
-  );
 }
 
 function Shell() {
@@ -90,7 +67,7 @@ function Shell() {
       <main>
         {activeTab === 'desk' && <DeskPanel />}
         {activeTab === 'sheets' && <SheetsPanel />}
-        {activeTab === 'import' && <ImportPlaceholder pending={pending} receiptId={receiptId} />}
+        {activeTab === 'import' && <ImportPanel pending={pending} receiptId={receiptId} />}
       </main>
       <footer className="app-foot">
         <span>Data lives only in this browser (IndexedDB ‘paper-api’). Reset clears bins, sheets and receipts.</span>

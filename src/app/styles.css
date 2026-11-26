@@ -40,3 +40,27 @@ a { color: var(--accent); }
   .no-print, .app-head, .app-foot { display: none !important; }
   .print-view svg { margin: 0; box-shadow: none; }
 }
+.tag-fixture { display: inline-block; font-size: .75rem; font-weight: 700; letter-spacing: .05em; padding: .1rem .5rem; border: 2px solid var(--accent); border-radius: 4px; color: var(--accent); vertical-align: middle; }
+.banner { padding: .6rem .8rem; border-radius: 6px; border: 1px solid var(--line); background: var(--card); }
+.banner-warn { border-color: #b45309; border-left-width: 6px; }
+.banner-danger { border-color: #b91c1c; border-left-width: 6px; }
+.banner-info { border-left: 6px solid var(--accent); }
+.review-list { display: grid; gap: 1rem; }
+.review-card { border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: .75rem 1rem; }
+.review-card.cls-conflict { border: 2px solid #b91c1c; }
+.review-card h3 { margin: 0 0 .5rem; display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+.badge { font-size: .8rem; font-weight: 700; padding: .1rem .55rem; border-radius: 999px; border: 1px solid var(--line); }
+.badge-danger { border-color: #b91c1c; color: #b91c1c; }
+.badge-warn { border-color: #b45309; color: #b45309; }
+.badge-info { border-color: var(--accent); color: var(--accent); }
+.card-body { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+.crop canvas { max-width: 100%; width: 28rem; height: auto; border: 1px solid var(--line); background: #fff; }
+.values { display: grid; gap: .4rem; margin: 0; min-width: 12rem; }
+.values div { display: flex; gap: .75rem; }
+.values dt { width: 6rem; color: var(--muted); }
+.values dd { margin: 0; font-weight: 600; }
+.explain { margin: .5rem 0; font-weight: 600; }
+.review-card .actions { margin-top: .5rem; }
+button[aria-pressed='true'] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+.confirm-bar { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 0; margin-top: 1rem; background: var(--bg); border-top: 1px solid var(--line); }
+button.primary:not(:disabled) { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
