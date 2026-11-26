@@ -110,7 +110,7 @@ type Alignment = { H: number[] } | { reason: 'no-alignment' | 'alignment-mismatc
 /**
  * Find the page homography. Each fiducial may be any solid square within FIDUCIAL_GATE_MM of its predicted
  * position. Hp is a least-squares AFFINE fit to the 4 QR corners: the QR homography extrapolated ~250 mm off the
- * 20 mm symbol drifts by tens of mm under perspective, the affine does not. Hp is used only for these gates;
+ * ~36 mm symbol drifts by tens of mm under perspective, the affine does not. Hp is used only for these gates;
  * every later check (QR agreement, registration, area ratio) is unchanged.
  * Every plausible combination of candidates is then verified against the QR corners and the checkbox borders of
  * the whole page, and the best-registered one wins.

@@ -27,7 +27,7 @@ This test shows whether Paper API can read real phone photos of real marked shee
 
 - Use a dark ballpoint or felt-tip pen. Draw an **X that fills most of the box**, corner to corner.
 - Mark one status per row at most. Leave one or two rows blank.
-- On each sheet, make **one row deliberately ambiguous**: an X in two boxes of the same row (preferred), or one short stroke through the middle of one box. Write `ambiguous` for that row.
+- On each sheet, make **one row deliberately ambiguous**: an **X in two boxes of the same row**. Write `ambiguous` for that row. (Don't use a single stroke or a small tick: a long stroke can read as a clean mark, and a small tick can read as blank.)
 - You may mark the same sheet differently for different photos (use a new printout, or take all photos of one marking). Whatever is on the page when you take the photo must match that photo's entry.
 
 ## 4. Take the photos
@@ -44,7 +44,7 @@ Take **10 photos** in total:
 
 ## 4b. Pilot on 27 Nov
 
-Before taking all 10, take **2 photos** (one per sheet) and run `npm run capture-test -- --min 2`. Send the printed table. This catches setup problems (paper size, curl, light) while there is still time to fix them.
+Before taking all 10, take **2 photos** (one per sheet). Put them in a separate folder, `captures/pilot/`, with its own `answers.json` listing just those 2 photos, and run `npm run capture-test -- --dir captures/pilot --min 2`. Send the printed table. This catches setup problems (paper size, curl, light) while there is still time to fix them.
 
 ## 5. Export as JPEG, not HEIC
 

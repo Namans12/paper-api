@@ -189,6 +189,6 @@ describe('readSheet', () => {
         r.rows.forEach((row, i) =>
           expect(['blank', 'uncertain'], `object ${x},${y},${w},${h} seed ${seed} row ${i}`).toContain(row.reading.kind));
       }
-    console.log(`merged-dark-object: ${refused}/12 refused`);
+    // Today every case is refused; if that changes, the per-row assertions above still guard against wrong reads.
   });
 });
