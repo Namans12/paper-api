@@ -27,7 +27,7 @@ describe('withLabelStrip', () => {
   it('still reads correctly for 20 seeds', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const photo = withLabelStrip(simulatePhoto(renderSheetRaster(sheet, marks, 4), defaultPhotoOptions(seed)));
-      const r = readSheet(photo, { maxDim: 2000 });
+      const r = readSheet(photo);
       expect(r.ok).toBe(true);
       if (!r.ok) continue;
       expect(r.rows.map((x) => x.reading)).toEqual([
@@ -36,4 +36,18 @@ describe('withLabelStrip', () => {
       ]);
     }
   });
+  it('default fixtures read on the app path', () => {
+    const expected = [
+      { kind: 'blank' }, { kind: 'mark', status: 'unavailable' }, { kind: 'blank' },
+      { kind: 'mark', status: 'needs-inspection' }, { kind: 'mark', status: 'unavailable' }, { kind: 'blank' },
+    ];
+    const raster = renderSheetRaster(sheet, marks, 4);
+    const failures: string[] = [];
+    for (let seed = 100; seed < 164; seed++) {
+      const r = readSheet(withLabelStrip(simulatePhoto(raster, defaultPhotoOptions(seed))));
+      if (!r.ok) failures.push(`seed ${seed}: ${r.reason}`);
+      else expect(r.rows.map((x) => x.reading)).toEqual(expected);
+    }
+    expect(failures).toEqual([]);
+  }, 120_000);
 });

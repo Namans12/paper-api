@@ -1,4 +1,4 @@
-import { applyH, homography, invertH, type Pt } from './homography';
+import { affineFit, applyH, homography, invertH, type Pt } from './homography';
 
 const src: Pt[] = [[0, 0], [210, 0], [0, 297], [210, 297]];
 const dst: Pt[] = [[30, 20], [900, 60], [10, 1100], [840, 1180]];
@@ -41,5 +41,28 @@ describe('homography', () => {
       const H = homography(src, d);
       applyH(H, [105, 148]).forEach((v) => expect(Number.isFinite(v)).toBe(true));
     }
+  });
+});
+
+describe('affineFit', () => {
+  const src: Pt[] = [[0, 0], [20, 0], [20, 20], [0, 20]];
+  it('recovers an exact affine map', () => {
+    const f = (p: Pt): Pt => [2 * p[0] + 0.5 * p[1] + 7, -0.3 * p[0] + 1.5 * p[1] - 4];
+    const A = affineFit(src, src.map(f));
+    for (const p of [[0, 0], [100, 250], [-30, 40]] as Pt[]) {
+      const q = applyH(A, p), e = f(p);
+      expect(q[0]).toBeCloseTo(e[0], 6);
+      expect(q[1]).toBeCloseTo(e[1], 6);
+    }
+  });
+  it('is a least-squares fit when the points are not exactly affine', () => {
+    const A = affineFit(src, [[0, 0], [20, 0], [20.4, 20], [0, 20]]);
+    const q = applyH(A, [10, 10]);
+    expect(q[0]).toBeCloseTo(10.1, 6);
+    expect(q[1]).toBeCloseTo(10, 6);
+    expect(A.slice(6)).toEqual([0, 0, 1]);
+  });
+  it('rejects collinear sources', () => {
+    expect(() => affineFit([[0, 0], [1, 1], [2, 2], [3, 3]], src)).toThrow();
   });
 });

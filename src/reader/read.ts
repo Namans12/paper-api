@@ -1,6 +1,6 @@
 import jsQR from 'jsqr';
 import { STATUSES, type Reading, type Status } from '../domain/types';
-import { applyH, homography, type Pt } from '../geometry/homography';
+import { affineFit, applyH, homography, type Pt } from '../geometry/homography';
 import { boxRect, fiducialCenters, SAMPLE_INSET, type Rect } from '../sheet/layout';
 import { decodePayload, encodePayload, qrMatrix, qrSymbolCorners } from '../sheet/qr';
 import type { RGBA } from '../sheet/raster';
@@ -108,14 +108,17 @@ const PER_CORNER = 3;
 type Alignment = { H: number[] } | { reason: 'no-alignment' | 'alignment-mismatch' };
 
 /**
- * Find the page homography. Each fiducial may be any solid square within FIDUCIAL_GATE_MM of the QR-predicted
- * position (the QR prediction is coarse, see report); every plausible combination is then verified against the
- * QR corners and the checkbox borders of the whole page, and the best-registered one wins.
+ * Find the page homography. Each fiducial may be any solid square within FIDUCIAL_GATE_MM of its predicted
+ * position. Hp is a least-squares AFFINE fit to the 4 QR corners: the QR homography extrapolated ~250 mm off the
+ * 20 mm symbol drifts by tens of mm under perspective, the affine does not. Hp is used only for these gates;
+ * every later check (QR agreement, registration, area ratio) is unchanged.
+ * Every plausible combination of candidates is then verified against the QR corners and the checkbox borders of
+ * the whole page, and the best-registered one wins.
  */
-function align(gray: Gray, Hq: number[], symPage: Pt[], symImg: Pt[]): Alignment {
+function align(gray: Gray, Hp: number[], symPage: Pt[], symImg: Pt[]): Alignment {
   const centres = fiducialCenters();
-  const predicted = centres.map((c) => applyH(Hq, c));
-  const gates = centres.map((c) => FIDUCIAL_GATE_MM * scaleAt(Hq, c));
+  const predicted = centres.map((c) => applyH(Hp, c));
+  const gates = centres.map((c) => FIDUCIAL_GATE_MM * scaleAt(Hp, c));
   const t = otsu(gray);
   let reason: 'no-alignment' | 'alignment-mismatch' = 'no-alignment';
   for (const threshold of [t, 0.75 * t]) {
@@ -192,11 +195,11 @@ export function readSheet(img: RGBA, opts: { maxDim?: number } = {}): ReadResult
     [loc.bottomRightCorner.x, loc.bottomRightCorner.y], [loc.bottomLeftCorner.x, loc.bottomLeftCorner.y],
   ];
 
-  let Hq: number[];
-  try { Hq = homography(symPage, symImg); } catch {
+  let Hp: number[];
+  try { homography(symPage, symImg); Hp = affineFit(symPage, symImg); } catch {
     return fail('no-alignment', 'Could not locate the sheet from the QR code. Retake the photo with the whole sheet in view.');
   }
-  const aligned = align(gray, Hq, symPage, symImg);
+  const aligned = align(gray, Hp, symPage, symImg);
   if ('reason' in aligned)
     return aligned.reason === 'no-alignment'
       ? fail('no-alignment', 'Could not find all four corner squares. Retake the photo with the whole sheet in view.')

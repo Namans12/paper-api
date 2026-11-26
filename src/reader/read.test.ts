@@ -169,6 +169,7 @@ describe('readSheet', () => {
     expect(registrationScore(toGray(r.image), r.H)).toBeGreaterThanOrEqual(REGISTRATION_MIN);
   });
 
+  // All 12 inputs below are currently refused (alignment-mismatch); this guards against any future wrong read.
   it('dark object merged with a fiducial never yields a wrong clean mark', () => {
     const paint = (page: RGBA, x0: number, y0: number, w: number, h: number, v: number) => {
       for (let y = Math.round(y0 * 4); y < Math.round((y0 + h) * 4); y++)
@@ -178,14 +179,16 @@ describe('readSheet', () => {
     // [x, y, w, h] in page mm overlapping the TR fiducial (188..200 x 10..22); each produced a wrong
     // clean mark before the per-box registration gate.
     const objects = [[198.5, 2, 10, 14], [195, 2, 14, 14], [197, 3, 12, 13], [199.5, 2, 9, 14], [198, 2.5, 11, 13], [197.5, 3, 11, 14]];
+    let refused = 0;
     for (const [x, y, w, h] of objects)
       for (const seed of [2, 5]) {
         const page = renderSheetRaster(sheet, []);
         paint(page, x, y, w, h, 30);
         const r = readSheet(simulatePhoto(page, defaultPhotoOptions(seed)));
-        if (!r.ok) continue;
+        if (!r.ok) { refused++; continue; }
         r.rows.forEach((row, i) =>
           expect(['blank', 'uncertain'], `object ${x},${y},${w},${h} seed ${seed} row ${i}`).toContain(row.reading.kind));
       }
+    console.log(`merged-dark-object: ${refused}/12 refused`);
   });
 });
