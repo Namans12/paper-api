@@ -36,6 +36,8 @@ describe('qr payload', () => {
     expect(decodePayload('https://x.y')).toBeNull();
     expect(decodePayload('PAPI2:abcdefghik')).toBeNull();
     expect(decodePayload('PAPI1:abcdefghi')).toBeNull();
+    expect(decodePayload('PAPI1:llllllllll')).toBeNull();
+    expect(decodePayload('PAPI1:oooooooooo')).toBeNull();
   });
 
   it('symbol corners sit inside the box past the quiet zone', () => {

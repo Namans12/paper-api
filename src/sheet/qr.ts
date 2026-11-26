@@ -7,7 +7,7 @@ export function encodePayload(sheetId: string): string {
 }
 
 export function decodePayload(text: string): { sheetId: string } | null {
-  const m = /^PAPI1:([a-z2-9]{10})$/.exec(text);
+  const m = /^PAPI1:([a-km-np-z2-9]{10})$/.exec(text);
   return m ? { sheetId: m[1] } : null;
 }
 

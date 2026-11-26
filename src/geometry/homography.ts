@@ -3,6 +3,8 @@ export type Pt = [number, number];
 /** Solves the 8x8 DLT system (Gaussian elimination, partial pivoting). Row-major 3x3 with H[8] = 1. */
 export function homography(src: Pt[], dst: Pt[]): number[] {
   if (src.length !== 4 || dst.length !== 4) throw new Error('homography needs exactly 4 point pairs');
+  assertNonDegenerate(src);
+  assertNonDegenerate(dst);
   const A: number[][] = [];
   for (let i = 0; i < 4; i++) {
     const [x, y] = src[i];
@@ -12,6 +14,19 @@ export function homography(src: Pt[], dst: Pt[]): number[] {
   }
   const h = solve(A, 8);
   return [...h, 1];
+}
+
+function assertNonDegenerate(pts: Pt[]): void {
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const diag2 = (Math.max(...xs) - Math.min(...xs)) ** 2 + (Math.max(...ys) - Math.min(...ys)) ** 2;
+  if (!(diag2 > 0)) throw new Error('degenerate point configuration');
+  for (let i = 0; i < 4; i++)
+    for (let j = i + 1; j < 4; j++)
+      for (let k = j + 1; k < 4; k++) {
+        const area2 =
+          (pts[j][0] - pts[i][0]) * (pts[k][1] - pts[i][1]) - (pts[j][1] - pts[i][1]) * (pts[k][0] - pts[i][0]);
+        if (Math.abs(area2) / 2 < 1e-9 * diag2) throw new Error('degenerate point configuration');
+      }
 }
 
 function solve(M: number[][], n: number): number[] {
