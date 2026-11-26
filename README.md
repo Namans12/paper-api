@@ -13,15 +13,16 @@ Open the address that `npm run dev` prints. Requires Node 22. Everything runs in
 
 ## Bin 4 walkthrough
 
-1. Click **Reset** in the footer.
+1. Click **Reset** in the footer (it asks for confirmation).
 2. Open **Sheets** and press **Issue new sheet**.
 3. Open **Desk** and set Bin 4 (Pressure washer) to **Unavailable**.
 4. Open **Sheets** and press **Make FIXTURE photo**. The defaults mark bin 2 Unavailable, bin 4 Needs inspection and bin 5 Unavailable.
-5. Press **Generate photo**, then **Import this photo**.
-6. Bin 4 shows **Conflict**: Printed Ready, Desk now Unavailable, Paper Needs inspection. Bin 2 is a **Clean edit** and bin 5 **Agrees**.
-7. Optional: in a second tab change bin 2 at the Desk, then press Apply in the first tab. You get "The desk changed while you were reviewing" and bin 2 needs review again.
-8. Choose **Keep desk** on bin 4, then press **Apply reviewed changes**. A receipt is shown.
-9. Import the same PNG again with the file picker on the Import tab. You get "Already applied — this is the original receipt."
+5. Press **Generate photo**, then **Download PNG** (keep the file), then **Import this photo**.
+6. The review shows bin 4 **Conflict** (Printed Ready, Desk now Unavailable, Paper Needs inspection), bin 2 **Clean edit** and bin 5 **Agrees**.
+7. Choose **Keep desk** on bin 4.
+8. Optional stale check: open the app in a second tab and change bin 2 at the Desk. Return to the first tab and press **Apply reviewed changes**. A banner says "The desk changed while you were reviewing" and bin 2 shows Conflict. Choose **Keep desk** (or **Accept paper**) on bin 2.
+9. Press **Apply reviewed changes**. A receipt is shown.
+10. On the Import tab, choose the downloaded PNG with the file picker. You get "Already applied — this is the original receipt."
 
 ## How it works
 

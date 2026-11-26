@@ -5,6 +5,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import jpeg from 'jpeg-js';
 import { PNG } from 'pngjs';
 import type { Reading, Status } from '../src/domain/types';
@@ -12,10 +13,10 @@ import { STATUSES } from '../src/domain/types';
 import { readSheet } from '../src/reader/read';
 import type { RGBA } from '../src/sheet/raster';
 
-type Truth = 'blank' | Status | 'ambiguous';
-interface Answer { file: string; sheetId: string; rows: Truth[] }
-type Verdict = 'passing' | 'rejected' | 'flagged' | 'incorrect';
-interface Outcome { file: string; verdict: Verdict; lines: string[] }
+export type Truth = 'blank' | Status | 'ambiguous';
+export interface Answer { file: string; sheetId: string; rows: Truth[] }
+export type Verdict = 'passing' | 'rejected' | 'flagged' | 'incorrect';
+export interface Outcome { file: string; verdict: Verdict; lines: string[] }
 
 const TRUTHS: string[] = ['blank', ...STATUSES, 'ambiguous'];
 const ROWS = 6;
@@ -88,15 +89,16 @@ const show = (r: Reading): string =>
   r.kind === 'blank' ? 'blank' : r.kind === 'mark' ? r.status : r.kind === 'double' ? `double(${r.statuses.join('+')})` : 'uncertain';
 
 /** 'ok' | 'flag' (unclear but honest) | 'wrong' (a confident wrong answer). */
-function judge(truth: Truth, r: Reading): 'ok' | 'flag' | 'wrong' {
+export function judge(truth: Truth, r: Reading): 'ok' | 'flag' | 'wrong' {
   const unclear = r.kind === 'uncertain' || r.kind === 'double';
-  if (truth === 'ambiguous') return unclear ? 'ok' : 'wrong'; // a clean read of an unclear mark would pass as a clean edit
+  // An unclear mark read as a clear mark would pass as a clean edit (wrong); read as blank it is merely not a pass (flag).
+  if (truth === 'ambiguous') return unclear ? 'ok' : r.kind === 'blank' ? 'flag' : 'wrong';
   if (unclear) return 'flag';
   if (truth === 'blank') return r.kind === 'blank' ? 'ok' : 'wrong';
   return r.kind === 'mark' && r.status === truth ? 'ok' : 'wrong';
 }
 
-function classify(a: Answer, file: string | null): Outcome {
+export function classify(a: Answer, file: string | null): Outcome {
   const out = (verdict: Verdict, lines: string[]): Outcome => ({ file: a.file, verdict, lines });
   if (!file) return out('rejected', ['file not found in the captures folder']);
   let img: RGBA;
@@ -105,9 +107,9 @@ function classify(a: Answer, file: string | null): Outcome {
   if (!r.ok) return out('rejected', [`${r.reason}: ${r.message}`]);
   const lines: string[] = [];
   let wrong = false, flag = false;
-  if (r.sheetId !== a.sheetId) {
+  if (r.sheetId !== a.sheetId.trim().toLowerCase()) {
     wrong = true;
-    lines.push(`WRONG sheet: read ${r.sheetId}, expected ${a.sheetId}`);
+    lines.push(`WRONG sheet (check sheetId in answers.json): read ${r.sheetId}, expected ${a.sheetId}`);
   }
   if (r.rows.length !== ROWS) { wrong = true; lines.push(`WRONG: reader returned ${r.rows.length} rows, expected ${ROWS}`); }
   a.rows.forEach((truth, i) => {
@@ -148,4 +150,4 @@ function main(): void {
   process.exit(ok ? 0 : 1);
 }
 
-main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

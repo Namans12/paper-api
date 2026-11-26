@@ -9,7 +9,7 @@ This test shows whether Paper API can read real phone photos of real marked shee
 1. Run `npm run dev` and open the printed address in your browser.
 2. Open the **Sheets** tab and press **Issue new sheet** twice.
 3. For each sheet, write down the sheet ID shown in the list. It is 10 letters and digits.
-4. Press **Print** on each sheet. Print on A4 or Letter at **100% scale**. Do not choose "fit to page" or "shrink to fit". Use a plain printer, black ink, white paper.
+4. Press **Print** on each sheet in the list. This opens a print view in a new tab; press **Print** again there. Print on A4 or Letter at **100% scale**. Do not choose "fit to page" or "shrink to fit". Use a plain printer, black ink, white paper.
 
 ## 2. Fill in answers.json BEFORE you mark
 
@@ -45,7 +45,7 @@ Take **10 photos** in total:
 
 The test reads JPEG and PNG files. HEIC will not work.
 
-- iPhone: Settings, Camera, Formats, choose **Most Compatible**, then take the photos. Or, when you AirDrop or email a photo, choose the "Most Compatible" or "as JPEG" option.
+- iPhone: Settings, Camera, Formats, choose **Most Compatible**, then take the photos. Android: photos are already JPEG.
 - Android: photos are normally JPEG already.
 
 Copy the photos into the `captures/` folder and name them exactly as in `answers.json`. The photos stay on your computer: they are ignored by git and are never committed.
@@ -63,9 +63,9 @@ Each photo gets one label, followed by a line per bin showing what you wrote and
 | Label | Meaning |
 | --- | --- |
 | PASSING | Sheet identified and aligned, every clear row read correctly, every ambiguous row reported as unclear. |
-| FLAGGED | Aligned, but a row you made clearly (or left blank) was reported as unclear. Safe, but not a pass. |
+| FLAGGED | Aligned, but a row you made clearly (or left blank) was reported as unclear, or an ambiguous row was read as blank. Safe, but not a pass. |
 | REJECTED | The reader refused the photo (the reason is printed). Safe, but not a pass. |
-| INCORRECT | The reader confidently said something wrong, such as the wrong status, a blank row read as marked, a marked row read as blank, an ambiguous row read as clear, or the wrong sheet. This is the failure we cannot accept. |
+| INCORRECT | The reader confidently said something wrong, such as the wrong status, a blank row read as marked, a marked row read as blank, an ambiguous row read as a mark, or the wrong sheet. This is the failure we cannot accept. |
 
 The last lines say `RESULT: PASS` or `RESULT: FAIL`. It passes only with at least 8 passing out of 10 and zero incorrect. If you have fewer than 10 photos it says "Need 10 photos; have N" and still needs at least 8 passing.
 

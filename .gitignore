@@ -2,12 +2,9 @@ node_modules
 dist
 .superpowers/
 .claude/
-captures/*.jpg
-captures/*.jpeg
-captures/*.JPG
-captures/*.JPEG
-captures/*.png
-captures/*.PNG
-captures/*.heic
-captures/*.HEIC
+captures/*.[jJ][pP][gG]
+captures/*.[jJ][pP][eE][gG]
+captures/*.[pP][nN][gG]
+captures/*.[hH][eE][iI][cC]
+captures/*.[hH][eE][iI][fF]
 captures/answers.json
